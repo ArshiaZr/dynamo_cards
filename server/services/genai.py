@@ -86,12 +86,12 @@ class YoutubeProcessor:
                 content += doc.page_content
             
             prompt = PromptTemplate(
-                template = """
+                template="""
                 Find and define key concepts or terms found in the text:
                 {text}
-                
-                Respond in the following format as a JSON object without any backticks separating each concept with a comma:
-                {{"concept": "definition", "concept": "definition", ...}}
+    
+                Respond in the following format as a JSON object without any backticks separating each concept with a comma do not write ```json before the object or after the object:
+                {{"concept1": "definition1", "concept2": "definition2", ...}}
                 """,
                 input_variables=["text"]
             )
@@ -117,8 +117,18 @@ class YoutubeProcessor:
                 batch_cost += total_input_cost + total_output_cost
                 logging.info(f"Total group cost: {total_input_cost + total_output_cost}\n")
         
-        processed_concepts = [json.loads(concept) for concept in concepts]
+
+        # return concepts
+
+        # remove ```json from the beginning and end of the string
+        for i in range(len(concepts)):
+            # if concepts[i].startswith("```json"):
+            concepts[i] = concepts[i][7:]
+            # if concepts[i].endswith("```"):
+            concepts[i] = concepts[i][:-3]
         
+        processed_concepts = [json.loads(concept) for concept in concepts]
+
         if verbose:
             logging.info(f"Total Analysis Cost: ${batch_cost}")
         return processed_concepts

@@ -25,7 +25,17 @@ def analyze_video(request: VideoAnalysisRequest):
     youtube_prcessor = YoutubeProcessor(genai_processor=gemini_processor)
 
     documents = youtube_prcessor.retrieve_youtube_documents(str(request.youtube_link))
-    key_concepts  = youtube_prcessor.get_key_concepts(docs=documents, verbose=True)
-
-
-    return { "key_concepts": key_concepts }
+    raw_concepts = youtube_prcessor.get_key_concepts(documents, verbose=True)
+    
+    # Deconstruct
+    unique_concepts = {}
+    for concept_dict in raw_concepts:
+        for key, value in concept_dict.items():
+            unique_concepts[key] = value
+    
+    # Reconstruct
+    key_concepts_list = [{"concept": key, "description": value} for key, value in concept_dict.items()]
+    
+    return {
+        "key_concepts": key_concepts_list
+    }
