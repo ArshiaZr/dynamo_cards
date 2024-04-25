@@ -6,6 +6,7 @@ from langchain.chains.summarize import load_summarize_chain
 from vertexai.generative_models import GenerativeModel
 from langchain.prompts import PromptTemplate
 from tqdm import tqdm
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,13 +56,22 @@ class YoutubeProcessor:
 
         return result
     
-    def get_key_concepts(self, docs: list, group_size: int=2, verbose=False):
-        if group_size > len(docs):
+    def get_key_concepts(self, docs: list, sample_size: int=0, verbose=False):
+        if sample_size > len(docs):
             raise ValueError("Group size is larger than the number of documents")
         
-        num_docs_per_group = len(docs) // group_size + (len(docs) % group_size > 0)
+        if sample_size == 0:
+            sample_size = len(docs) // 5
+            if verbose:
+                logger.info(f"Sample size not provided. Defaulting to {sample_size}")
+        
+        num_docs_per_group = len(docs) // sample_size + (len(docs) % sample_size > 0)
 
-
+        
+        if num_docs_per_group > 10:
+            raise ValueError("Each group has more than 10 documents and output quality will degraded. Increase the sample_size parameter to reduce the number of documents per page.")
+        elif num_docs_per_group > 5:
+            logger.warn("Each group has more than 5 documents and output quality will be likely degraded. Consider increasing the sample_size parameter to reduce the number of documents per page.")
 
         groups = [docs[i: i + num_docs_per_group] for i in range(0, len(docs), num_docs_per_group)]
 
@@ -76,12 +86,12 @@ class YoutubeProcessor:
                 content += doc.page_content
             
             prompt = PromptTemplate(
-                template="""
+                template = """
                 Find and define key concepts or terms found in the text:
                 {text}
-
-                Respond in the following format as string seprating each concept with a comma:
-                "concept": "description"
+                
+                Respond in the following format as a JSON object without any backticks separating each concept with a comma:
+                {{"concept": "definition", "concept": "definition", ...}}
                 """,
                 input_variables=["text"]
             )
@@ -107,6 +117,8 @@ class YoutubeProcessor:
                 batch_cost += total_input_cost + total_output_cost
                 logging.info(f"Total group cost: {total_input_cost + total_output_cost}\n")
         
+        processed_concepts = [json.loads(concept) for concept in concepts]
+        
         if verbose:
             logging.info(f"Total Analysis Cost: ${batch_cost}")
-        return concepts
+        return processed_concepts
