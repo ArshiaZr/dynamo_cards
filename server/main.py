@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel, HttpUrl
 from fastapi.middleware.cors import CORSMiddleware
-from services.genai import YoutubeProcessor
+from services.genai import YoutubeProcessor, GeminiProcessor
 
 
 class VideoAnalysisRequest(BaseModel):
@@ -18,10 +18,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+gemini_processor = GeminiProcessor("gemini-pro", "dynamo-cards-421318")
+
 @app.post("/analyze_video")
 def analyze_video(request: VideoAnalysisRequest):
-    processor = YoutubeProcessor()
-    result = processor.retrieve_youtube_documents(str(request.youtube_link), True)
+    youtube_prcessor = YoutubeProcessor(genai_processor=gemini_processor)
+
+    documents = youtube_prcessor.retrieve_youtube_documents(str(request.youtube_link))
+    key_concepts  = youtube_prcessor.get_key_concepts(docs=documents)
 
 
-    return { "result": result }
+    return { "key_concepts": key_concepts }
