@@ -25,8 +25,9 @@ class GeminiProcessor:
     def count_total_tokens(self, docs: list):
         temp_model = GenerativeModel("gemini-1.0-pro")
         total = 0
+        logger.info("Counting total billable characters...")
         for doc in tqdm(docs):
-            total += temp_model.count_tokens(doc.page_content).total_tokens
+            total += temp_model.count_tokens(doc.page_content).total_billable_charachters
         return total
     
     def get_model(self):
@@ -49,11 +50,12 @@ class YoutubeProcessor:
         total_size = len(result)
 
         if verbose:
-            logger.info(f"{author}\n{length}\n{title}\n{total_size}")
+            total_billable_characters = self.genAIProcessor.count_total_tokens(result)
+            logging.info(f"{author}\n{length}\n{title}\n{total_size}\n{total_billable_characters}")
 
         return result
     
-    def get_key_concepts(self, docs: list, group_size: int=2):
+    def get_key_concepts(self, docs: list, group_size: int=2, verbose=False):
         if group_size > len(docs):
             raise ValueError("Group size is larger than the number of documents")
         
@@ -64,6 +66,8 @@ class YoutubeProcessor:
         groups = [docs[i: i + num_docs_per_group] for i in range(0, len(docs), num_docs_per_group)]
 
         concepts = []
+        batch_cost = 0
+
         logger.info("Retreiving key concepts...")
         for group in tqdm(groups):
             content = ""
@@ -85,4 +89,24 @@ class YoutubeProcessor:
             chain = prompt | self.genAIProcessor.model
             concept = chain.invoke({"text": content})
             concepts.append(concept)
+
+            if verbose:
+                total_input_char = len(content)
+                total_input_cost = (total_input_char/1000) * 0.000125
+                
+                logging.info(f"Running chain on {len(group)} documents")
+                logging.info(f"Total input characters: {total_input_char}")
+                logging.info(f"Total cost: {total_input_cost}")
+                
+                total_output_char = len(concept)
+                total_output_cost = (total_output_char/1000) * 0.000375
+                
+                logging.info(f"Total output characters: {total_output_char}")
+                logging.info(f"Total cost: {total_output_cost}")
+                
+                batch_cost += total_input_cost + total_output_cost
+                logging.info(f"Total group cost: {total_input_cost + total_output_cost}\n")
+        
+        if verbose:
+            logging.info(f"Total Analysis Cost: ${batch_cost}")
         return concepts
